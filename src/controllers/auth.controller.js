@@ -1,5 +1,6 @@
 import { userModel } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
+import { sendRegistrationEmail } from "../services/email.service.js";
 
 /**
  * - user register controller
@@ -38,6 +39,8 @@ const userRegisterController = async (req, res) => {
     sameSite: "strict",
     maxAge: 3 * 24 * 60 * 60 * 1000,
   });
+
+  await sendRegistrationEmail(user.email, user.name);
 
   return res.status(201).json({
     message: "User registered successfully",
