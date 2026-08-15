@@ -17,6 +17,6 @@ import accountRouter from "./routes/account.routes.js";
  * - Use Routes
  */
 app.use("/api/v1/auth", authRouter);
-app.use("/api/v1/account", accountRouter);
+app.use("/api/v1/accounts", accountRouter);
 
 export { app };
