@@ -1,8 +1,7 @@
 import { accountModel } from "../models/account.mode.js";
-import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 const createAccountController = async (req, res) => {
-  const user = req.user;``
+  const user = req.user;
 
   // step 1: check if user already has an account
   const existingAccount = await accountModel.findOne({ user: user._id });

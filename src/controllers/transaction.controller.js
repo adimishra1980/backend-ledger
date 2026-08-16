@@ -3,6 +3,7 @@ import { transactionModel } from "../models/transaction.model.js";
 import { userModel } from "../models/user.model.js";
 import { ledgerModel } from "../models/ledger.model.js";
 import { sendTransactionEmail } from "../services/email.service.js";
+import { accountModel } from "../models/account.mode.js";
 
 /**
  * - Create a new transaction
@@ -160,4 +161,87 @@ const createTransaction = async (req, res) => {
   });
 };
 
-export { createTransaction };
+const createInitialFundsTransaction = async (req, res) => {
+  const { toAccount, amount, idempotencyKey } = req.body;
+
+  if (!toAccount || !amount || !idempotencyKey) {
+    return res.status(400).json({
+      message: "toAccount, amount, and idempotencyKey are required",
+    });
+  }
+
+  const toUserAccount = await accountModel.findOne({
+    _id: toAccount,
+  });
+
+  if (!toUserAccount) {
+    return res.status(404).json({
+      message: "Invalid to account",
+    });
+  }
+
+  if (toUserAccount.status !== "ACTIVE") {
+    return res.status(400).json({
+      message: "To account is not active",
+    });
+  }
+
+  const fromUserAccount = await accountModel.findOne({
+    user: req.user._id,
+  });
+
+  if (!fromUserAccount) {
+    return res.status(400).json({
+      message: "System user account not found",
+    });
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  const transaction = new transactionModel({
+    fromAccount: fromUserAccount._id,
+    toAccount,
+    amount,
+    idempotencyKey,
+    status: "PENDING",
+  });
+
+  const debitLedgerEntry = await ledgerModel.create(
+    [
+      {
+        account: fromUserAccount._id,
+        amount,
+        transaction: transaction._id,
+        type: "DEBIT",
+      },
+    ],
+    { session },
+  );
+
+  const creditLedgerEntry = await ledgerModel.create(
+    [
+      {
+        account: toAccount,
+        amount,
+        transaction: transaction._id,
+        type: "CREDIT",
+      },
+    ],
+    { session },
+  );
+
+  transaction.status = "COMPLETED";
+  await transaction.save({ session });
+
+  await session.commitTransaction();
+  session.endSession();
+
+  return res.status(201).json({
+    message: "Initial funds transaction completed successfully",
+    status: "success",
+    transaction,
+  });
+};
+
+export { createTransaction, createInitialFundsTransaction };

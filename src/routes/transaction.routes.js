@@ -1,6 +1,9 @@
 import express from "express";
-import { createTransaction } from "../controllers/transaction.controller.js";
-import { authMiddleware } from "../middlewares/auth.middleware.js";
+import { createInitialFundsTransaction, createTransaction } from "../controllers/transaction.controller.js";
+import {
+  authMiddleware,
+  authSystemUserMiddleware,
+} from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
@@ -10,4 +13,14 @@ const router = express.Router();
  */
 router.post("/", authMiddleware, createTransaction);
 
-export default router
+/**
+ * - POST /api/v1/transactions/system/initial-funds
+ * - Add initial funds to the system
+ */
+router.post(
+  "/system/initial-funds",
+  authSystemUserMiddleware,
+  createInitialFundsTransaction,
+);
+
+export default router;
