@@ -24,4 +24,49 @@ const createAccountController = async (req, res) => {
   });
 };
 
-export { createAccountController };
+const getUserAccountsController = async (req, res) => {
+  const accounts = await accountModel.find({
+    user: req.user._id,
+  });
+
+  if (!accounts || accounts.length === 0) {
+    return res.status(404).json({
+      message: "No accounts found for the user",
+    });
+  }
+
+  return res.status(200).json({
+    message: "Accounts fetched successfully",
+    status: "success",
+    accounts,
+  });
+};
+
+const getAccountBalanceController = async (req, res) => {
+  const { accountId } = req.params;
+
+  const account = await accountModel.findOne({
+    _id: accountId,
+    user: req.user._id,
+  });
+
+  if (!account) {
+    return res.status(404).json({
+      message: "Account not found",
+    });
+  }
+
+  const balance = await account.getBalance()
+
+  return res.status(200).json({
+    message: "Account balance fetched successfully",
+    status: "success",
+    balance,
+  });
+};
+
+export {
+  createAccountController,
+  getUserAccountsController,
+  getAccountBalanceController,
+};
