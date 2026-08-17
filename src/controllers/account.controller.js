@@ -1,4 +1,4 @@
-import { accountModel } from "../models/account.mode.js";
+import { accountModel } from "../models/account.model.js";
 
 const createAccountController = async (req, res) => {
   const user = req.user;
@@ -52,11 +52,11 @@ const getAccountBalanceController = async (req, res) => {
 
   if (!account) {
     return res.status(404).json({
-      message: "Account not found",
+      message: "Account not found or you can't access different account",
     });
   }
 
-  const balance = await account.getBalance()
+  const balance = await account.getBalance();
 
   return res.status(200).json({
     message: "Account balance fetched successfully",

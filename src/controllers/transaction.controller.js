@@ -3,7 +3,7 @@ import { transactionModel } from "../models/transaction.model.js";
 import { userModel } from "../models/user.model.js";
 import { ledgerModel } from "../models/ledger.model.js";
 import { sendTransactionEmail } from "../services/email.service.js";
-import { accountModel } from "../models/account.mode.js";
+import { accountModel } from "../models/account.model.js";
 
 /**
  * - Create a new transaction
@@ -29,16 +29,16 @@ const createTransaction = async (req, res) => {
     });
   }
 
-  const fromUserAccount = await userModel.findOne({
+  const fromUserAccount = await accountModel.findOne({
     _id: fromAccount,
   });
   if (!fromUserAccount) {
     return res.status(404).json({
-      message: "Invalid from account",
+      message: `Invalid from account`,
     });
   }
 
-  const toUserAccount = await userModel.findOne({
+  const toUserAccount = await accountModel.findOne({
     _id: toAccount,
   });
   if (!toUserAccount) {
@@ -56,8 +56,6 @@ const createTransaction = async (req, res) => {
     if (isTransactionAlreadyExists.status === "COMPLETED") {
       return res.status(200).json({
         message: "Transaction already processed",
-        status: "success",
-        transaction: isTransactionAlreadyExists,
       });
     }
 
@@ -106,51 +104,73 @@ const createTransaction = async (req, res) => {
     });
   }
 
-  //Create transaction (PENDING)
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  let transaction;
+  try {
+    //Create transaction (PENDING)
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-  const transaction = await transactionModel.create(
-    {
-      fromAccount,
-      toAccount,
-      amount,
-      idempotencyKey,
-      status: "PENDING",
-    },
-    { session },
-  );
+    transaction = (
+      await transactionModel.create(
+        [
+          {
+            fromAccount,
+            toAccount,
+            amount,
+            idempotencyKey,
+            status: "PENDING",
+          },
+        ],
+        { session },
+      )
+    )[0];
 
-  //   Create DEBIT ledger entry
-  const debitLedgerEntry = await ledgerModel.create(
-    {
-      account: fromAccount,
-      amount,
-      transaction: transaction._id,
-      type: "DEBIT",
-    },
-    { session },
-  );
+    // Create DEBIT ledger entry
+    const debitLedgerEntry = await ledgerModel.create(
+      [
+        {
+          account: fromAccount,
+          amount,
+          transaction: transaction._id,
+          type: "DEBIT",
+        },
+      ],
+      { session },
+    );
 
-  //   Create CREDIT ledger entry
-  const creditLedgerEntry = await ledgerModel.create(
-    {
-      account: toAccount,
-      amount,
-      transaction: transaction._id,
-      type: "CREDIT",
-    },
-    { session },
-  );
+    // await (() => {
+    //   return new Promise((resolve) => setTimeout(resolve, 10 * 1000));
+    // })();
 
-  //   Mark transaction COMPLETED
-  transaction.status = "COMPLETED";
-  await transaction.save({ session });
+    // Create CREDIT ledger entry
+    const creditLedgerEntry = await ledgerModel.create(
+      [
+        {
+          account: toAccount,
+          amount,
+          transaction: transaction._id,
+          type: "CREDIT",
+        },
+      ],
+      { session },
+    );
 
-  //   Commit MongoDB session
-  await session.commitTransaction();
-  session.endSession();
+    // Mark transaction COMPLETED
+    await transactionModel.findOneAndUpdate(
+      { _id: transaction._id },
+      { $set: { status: "COMPLETED" } },
+      { session },
+    );
 
+    //   Commit MongoDB session
+    await session.commitTransaction();
+    session.endSession();
+  } catch (error) {
+    return res.status(400).json({
+      message:
+        "Transaction is Pending due to some issues, please retry after some time",
+    });
+  }
   //   Send email notification
   await sendTransactionEmail(req.user.email, req.user.name, amount, toAccount);
 
