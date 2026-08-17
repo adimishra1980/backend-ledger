@@ -1,6 +1,7 @@
 import { userModel } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import { sendRegistrationEmail } from "../services/email.service.js";
+import { tokenBlacklistModel } from "../models/blacklist.model.js";
 
 /**
  * - user register controller
@@ -68,14 +69,14 @@ const userLoginController = async (req, res) => {
     });
   }
 
-  const user = await userModel.findOne({ email }).select("+password")
+  const user = await userModel.findOne({ email }).select("+password");
   if (!user) {
     return res.status(401).json({
       message: "User not found",
     });
   }
 
-  const isPasswordValid = await user.comparePassword(password)
+  const isPasswordValid = await user.comparePassword(password);
 
   if (!isPasswordValid) {
     return res.status(401).json({
@@ -107,4 +108,29 @@ const userLoginController = async (req, res) => {
   });
 };
 
-export { userRegisterController, userLoginController };
+/**
+ * - User logout controller
+ * - POST /api/v1/auth/logout
+ */
+const userLogoutController = async (req, res) => {
+  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
+
+  // clear cookie
+  res.clearCookie("token");
+
+  // blacklist token
+  await tokenBlacklistModel.create({
+    token,
+  });
+
+  return res.status(200).json({
+    message: "User logged out successfully",
+  });
+};
+
+export { userRegisterController, userLoginController, userLogoutController };

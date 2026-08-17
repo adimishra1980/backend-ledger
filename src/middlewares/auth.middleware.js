@@ -1,5 +1,6 @@
 import { userModel } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
+import { tokenBlacklistModel } from "../models/blacklist.model.js";
 
 const authMiddleware = async (req, res, next) => {
   try {
@@ -9,6 +10,14 @@ const authMiddleware = async (req, res, next) => {
         message: "Unauthorized",
       });
     }
+
+    const isBlacklistedToken = await tokenBlacklistModel.findOne({ token });
+    if (isBlacklistedToken) {
+      return res.status(401).json({
+        message: "Unauthorized access, token is invalid",
+      });
+    }
+
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await userModel.findById(decodedToken.userId);
@@ -34,6 +43,13 @@ const authSystemUserMiddleware = async (req, res, next) => {
   if (!token) {
     return res.status(401).json({
       message: "Unauthorized access, token not found",
+    });
+  }
+
+  const isBlacklistedToken = await tokenBlacklistModel.findOne({ token });
+  if (isBlacklistedToken) {
+    return res.status(401).json({
+      message: "Unauthorized access, token is invalid",
     });
   }
 
