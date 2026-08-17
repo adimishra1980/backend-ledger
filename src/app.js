@@ -17,6 +17,13 @@ import transactionRouter from "./routes/transaction.routes.js";
 /**
  * - Use Routes
  */
+
+app.get("/", (req, res) => {
+  res.json({
+    message: "Server is running successfully",
+  });
+});
+
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/accounts", accountRouter);
 app.use("/api/v1/transactions", transactionRouter);
